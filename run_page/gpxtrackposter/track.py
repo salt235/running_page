@@ -151,7 +151,10 @@ class Track:
                 if start_ts is not None and end_ts is not None and end_ts >= start_ts:
                     session["total_elapsed_time"] = end_ts - start_ts
 
-            if session.get("total_distance") is None or session.get("start_time") is None:
+            if (
+                session.get("total_distance") is None
+                or session.get("start_time") is None
+            ):
                 print(
                     f"Session message or total distance is missing when loading FIT. for file {self.file_names[0]}, we just ignore this file and continue"
                 )
@@ -442,7 +445,9 @@ class Track:
             or total_elapsed_time
             or 0
         )
-        self.moving_dict["moving_time"] = datetime.timedelta(seconds=moving_time_seconds)
+        self.moving_dict["moving_time"] = datetime.timedelta(
+            seconds=moving_time_seconds
+        )
         self.moving_dict["elapsed_time"] = datetime.timedelta(
             seconds=(total_elapsed_time or 0)
         )

@@ -107,14 +107,56 @@ class Track:
                 )
                 os.remove(file_name)
                 return
-            if (
-                messages.get("session_mesgs") is None
-                or messages.get("session_mesgs")[0].get("total_distance") is None
-            ):
+            session_mesgs = messages.get("session_mesgs") or []
+            record_mesgs = messages.get("record_mesgs") or []
+
+            if not session_mesgs:
+                if record_mesgs:
+                    session_mesgs = [{}]
+                    messages["session_mesgs"] = session_mesgs
+                else:
+                    print(
+                        f"Session message or total distance is missing when loading FIT. for file {self.file_names[0]}, we just ignore this file and continue"
+                    )
+                    return
+
+            session = session_mesgs[0]
+
+            if session.get("total_distance") is None and record_mesgs:
+                for record in reversed(record_mesgs):
+                    if record.get("enhanced_distance") is not None:
+                        session["total_distance"] = record.get("enhanced_distance")
+                        break
+                    if record.get("distance") is not None:
+                        session["total_distance"] = record.get("distance")
+                        break
+
+            if session.get("start_time") is None and record_mesgs:
+                for record in record_mesgs:
+                    if record.get("timestamp") is not None:
+                        session["start_time"] = record.get("timestamp")
+                        break
+
+            if session.get("total_elapsed_time") is None and record_mesgs:
+                start_ts = None
+                end_ts = None
+                for record in record_mesgs:
+                    if record.get("timestamp") is not None:
+                        start_ts = record.get("timestamp")
+                        break
+                for record in reversed(record_mesgs):
+                    if record.get("timestamp") is not None:
+                        end_ts = record.get("timestamp")
+                        break
+                if start_ts is not None and end_ts is not None and end_ts >= start_ts:
+                    session["total_elapsed_time"] = end_ts - start_ts
+
+            if session.get("total_distance") is None or session.get("start_time") is None:
                 print(
                     f"Session message or total distance is missing when loading FIT. for file {self.file_names[0]}, we just ignore this file and continue"
                 )
                 return
+
             self._load_fit_data(messages)
         except Exception as e:
             print(
@@ -367,14 +409,18 @@ class Track:
         self.polyline_container = []
         message = fit["session_mesgs"][0]
         self.start_time = datetime.datetime.fromtimestamp(
-            (message["start_time"] + FIT_EPOCH_S), tz=timezone.utc
-        )
-        self.run_id = self.__make_run_id(self.start_time)
-        self.end_time = datetime.datetime.fromtimestamp(
-            (message["start_time"] + FIT_EPOCH_S + message["total_elapsed_time"]),
+            (message["start_time"] + FIT_EPOCH_S),
             tz=timezone.utc,
         )
-        self.length = message["total_distance"]
+        self.run_id = self.__make_run_id(self.start_time)
+        total_elapsed_time = message.get("total_elapsed_time")
+        if total_elapsed_time is None:
+            total_elapsed_time = message.get("total_timer_time") or 0
+        self.end_time = datetime.datetime.fromtimestamp(
+            (message["start_time"] + FIT_EPOCH_S + total_elapsed_time),
+            tz=timezone.utc,
+        )
+        self.length = message.get("total_distance") or 0
         self.average_heartrate = (
             message["avg_heart_rate"] if "avg_heart_rate" in message else None
         )
@@ -388,22 +434,29 @@ class Track:
             message["total_ascent"] if "total_ascent" in message else None
         )
         # moving_dict
-        self.moving_dict["distance"] = message["total_distance"]
-        self.moving_dict["moving_time"] = datetime.timedelta(
-            seconds=(
-                message["total_moving_time"]
-                if "total_moving_time" in message
-                else message["total_timer_time"]
-            )
+        self.moving_dict["distance"] = self.length
+
+        moving_time_seconds = (
+            message.get("total_moving_time")
+            or message.get("total_timer_time")
+            or total_elapsed_time
+            or 0
         )
+        self.moving_dict["moving_time"] = datetime.timedelta(seconds=moving_time_seconds)
         self.moving_dict["elapsed_time"] = datetime.timedelta(
-            seconds=message["total_elapsed_time"]
+            seconds=(total_elapsed_time or 0)
         )
-        self.moving_dict["average_speed"] = (
-            message["enhanced_avg_speed"]
-            if message["enhanced_avg_speed"]
-            else message["avg_speed"]
-        )
+
+        enhanced_avg_speed = message.get("enhanced_avg_speed")
+        avg_speed = message.get("avg_speed")
+        if enhanced_avg_speed:
+            self.moving_dict["average_speed"] = enhanced_avg_speed
+        elif avg_speed:
+            self.moving_dict["average_speed"] = avg_speed
+        elif moving_time_seconds:
+            self.moving_dict["average_speed"] = self.length / moving_time_seconds
+        else:
+            self.moving_dict["average_speed"] = 0
         for record in fit["record_mesgs"]:
             if "position_lat" in record and "position_long" in record:
                 lat = record["position_lat"] / SEMICIRCLE

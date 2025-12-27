@@ -58,6 +58,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
+      - name: Initialize imported.json (first run)
+        if: github.run_number == 1
+        run: |
+          echo '[]' > imported.json
+
       - name: Set up Python
         id: setup_python
         uses: actions/setup-python@v5

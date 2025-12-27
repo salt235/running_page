@@ -122,13 +122,22 @@ class Track:
 
             session = session_mesgs[0]
 
+            if session.get("total_distance") is not None:
+                session["total_distance"] = self._normalize_fit_distance(
+                    session.get("total_distance")
+                )
+
             if session.get("total_distance") is None and record_mesgs:
                 for record in reversed(record_mesgs):
                     if record.get("enhanced_distance") is not None:
-                        session["total_distance"] = record.get("enhanced_distance")
+                        session["total_distance"] = self._normalize_fit_distance(
+                            record.get("enhanced_distance")
+                        )
                         break
                     if record.get("distance") is not None:
-                        session["total_distance"] = record.get("distance")
+                        session["total_distance"] = self._normalize_fit_distance(
+                            record.get("distance")
+                        )
                         break
 
             if session.get("start_time") is None and record_mesgs:
@@ -423,7 +432,7 @@ class Track:
             (message["start_time"] + FIT_EPOCH_S + total_elapsed_time),
             tz=timezone.utc,
         )
-        self.length = message.get("total_distance") or 0
+        self.length = self._normalize_fit_distance(message.get("total_distance") or 0)
         self.average_heartrate = (
             message["avg_heart_rate"] if "avg_heart_rate" in message else None
         )
@@ -487,6 +496,20 @@ class Track:
                 self.device = device_message["manufacturer"]
             if "garmin_product" in device_message:
                 self.device += " " + device_message["garmin_product"]
+
+    @staticmethod
+    def _normalize_fit_distance(distance):
+        if distance is None:
+            return None
+        try:
+            value = float(distance)
+        except (TypeError, ValueError):
+            return distance
+
+        if value > 0 and value < 1000:
+            return value * 1000
+
+        return value
 
     def append(self, other):
         """Append other track to self."""

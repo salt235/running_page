@@ -17,19 +17,19 @@ const getBasePath = () => {
 const data: ISiteMetadataResult = {
   siteTitle: 'YYX Running Page',
   siteUrl: 'https://run.yyx235.top',
-  logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQTtc69JxHNcmN1ETpMUX4dozAgAN6iPjWalQ&usqp=CAU',
+  logo: 'https://github.com/salt235.png',
   description: 'Personal site and blog',
   navLinks: [
     {
-      name: 'Summary',
+      name: '跑步总结',
       url: `${getBasePath()}/summary`,
     },
     {
-      name: 'Blog',
+      name: '个人博客',
       url: 'https://blog.yyx235.top',
     },
     {
-      name: 'About',
+      name: '关于我',
       url: 'https://github.com/salt235',
     },
   ],

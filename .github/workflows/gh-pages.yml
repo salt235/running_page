@@ -2,6 +2,9 @@ name: Publish GitHub Pages
 
 # Controls when the action will run.
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       save_data_in_github_cache:
@@ -53,7 +56,7 @@ jobs:
           persist-credentials: false
 
       - name: Cache Data Files
-        if: inputs.save_data_in_github_cache
+        if: github.event_name == 'workflow_call' && inputs.save_data_in_github_cache
         uses: actions/cache@v4
         with:
           path: |
@@ -98,6 +101,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Build
+        env:
+          DATA_CACHE_PREFIX: ${{ github.event_name == 'workflow_call' && inputs.data_cache_prefix || 'track_data' }}
         run: PATH_PREFIX=/ pnpm build
 
       - name: Add CNAME for custom domain

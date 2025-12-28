@@ -63,13 +63,13 @@ const Header = () => {
   return (
     <>
       <nav className="mx-auto mt-12 flex w-full min-w-max max-w-screen-2xl items-center justify-between pl-6 lg:px-16">
-        <div className="w-1/4 flex items-center gap-4">
+        <div className="flex w-1/4 items-center gap-4">
           <Link to={siteUrl} className="shrink-0">
             <picture>
               <img className="h-16 w-16 rounded-full" alt="logo" src={logo} />
             </picture>
           </Link>
-          <p className="text-sm text-gray-500 hidden lg:block">
+          <p className="hidden text-sm text-gray-500 lg:block">
             今天不想跑，所以才去跑，这才是长距离跑者的思维方式。
           </p>
         </div>

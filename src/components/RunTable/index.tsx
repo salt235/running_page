@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import {
   sortDateFunc,
   sortDateFuncReverse,
@@ -6,7 +6,7 @@ import {
   Activity,
   RunIds,
 } from '@/utils/utils';
-import { SHOW_ELEVATION_GAIN } from '@/utils/const';
+import { IS_CHINESE, SHOW_ELEVATION_GAIN } from '@/utils/const';
 
 import RunRow from './RunRow';
 import styles from './style.module.css';
@@ -29,6 +29,17 @@ const RunTable = ({
   setRunIndex,
 }: IRunTableProperties) => {
   const [sortFuncInfo, setSortFuncInfo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const PAGE_SIZE = 20;
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(runs.length / PAGE_SIZE)),
+    [runs.length]
+  );
+
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
 
   // Memoize sort functions to prevent recreating them on every render
   const sortFunctions = useMemo(() => {
@@ -80,9 +91,34 @@ const RunTable = ({
 
       setRunIndex(-1);
       setSortFuncInfo(sortFuncInfo === funcName ? '' : funcName);
-      setActivity(runs.sort(f));
+      setActivity(runs.slice().sort(f));
+      setCurrentPage(1);
+      locateActivity([]);
     },
-    [sortFunctions, sortFuncInfo, runs, setRunIndex, setActivity]
+    [
+      sortFunctions,
+      sortFuncInfo,
+      runs,
+      setRunIndex,
+      setActivity,
+      locateActivity,
+    ]
+  );
+
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const pageRuns = useMemo(
+    () => runs.slice(startIndex, startIndex + PAGE_SIZE),
+    [runs, startIndex]
+  );
+
+  const goToPage = useCallback(
+    (page: number) => {
+      const clamped = Math.max(1, Math.min(totalPages, page));
+      setCurrentPage(clamped);
+      setRunIndex(-1);
+      locateActivity([]);
+    },
+    [locateActivity, setRunIndex, totalPages]
   );
 
   return (
@@ -99,10 +135,10 @@ const RunTable = ({
           </tr>
         </thead>
         <tbody>
-          {runs.map((run, elementIndex) => (
+          {pageRuns.map((run, elementIndex) => (
             <RunRow
               key={run.run_id}
-              elementIndex={elementIndex}
+              elementIndex={startIndex + elementIndex}
               locateActivity={locateActivity}
               run={run}
               runIndex={runIndex}
@@ -111,6 +147,30 @@ const RunTable = ({
           ))}
         </tbody>
       </table>
+
+      <div className={styles.pagination}>
+        <button
+          type="button"
+          className={styles.pageButton}
+          disabled={currentPage <= 1}
+          onClick={() => goToPage(currentPage - 1)}
+        >
+          {IS_CHINESE ? '上一页' : 'Prev'}
+        </button>
+        <span className={styles.pageInfo}>
+          {IS_CHINESE
+            ? `第 ${currentPage} / ${totalPages} 页`
+            : `Page ${currentPage} / ${totalPages}`}
+        </span>
+        <button
+          type="button"
+          className={styles.pageButton}
+          disabled={currentPage >= totalPages}
+          onClick={() => goToPage(currentPage + 1)}
+        >
+          {IS_CHINESE ? '下一页' : 'Next'}
+        </button>
+      </div>
     </div>
   );
 };

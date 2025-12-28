@@ -262,6 +262,10 @@ jobs:
           DATA_CACHE_PREFIX: ${{ env.DATA_CACHE_PREFIX }}
           BUILD_GH_PAGES: ${{ env.BUILD_GH_PAGES }}
         run: |
+          echo "Resolved env values:"
+          echo "SAVE_DATA_IN_GITHUB_CACHE=$SAVE_DATA_IN_GITHUB_CACHE"
+          echo "DATA_CACHE_PREFIX=$DATA_CACHE_PREFIX"
+          echo "BUILD_GH_PAGES=$BUILD_GH_PAGES"
           echo "SAVE_DATA_IN_GITHUB_CACHE=$SAVE_DATA_IN_GITHUB_CACHE" >> "$GITHUB_OUTPUT"
           echo "DATA_CACHE_PREFIX=$DATA_CACHE_PREFIX" >> "$GITHUB_OUTPUT"
           echo "BUILD_GH_PAGES=$BUILD_GH_PAGES" >> "$GITHUB_OUTPUT"

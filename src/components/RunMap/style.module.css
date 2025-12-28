@@ -4,6 +4,7 @@
   margin: 1rem 0 0;
   border: 0;
   padding: 0;
+  color: var(--color-primary);
 }
 
 .buttons {

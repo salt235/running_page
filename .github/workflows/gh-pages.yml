@@ -102,6 +102,9 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
         run: PATH_PREFIX=/$REPO_NAME pnpm build
 
+      - name: Add CNAME for custom domain
+        run: echo 'run.salt235.top' > dist/CNAME
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

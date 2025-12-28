@@ -122,22 +122,13 @@ class Track:
 
             session = session_mesgs[0]
 
-            if session.get("total_distance") is not None:
-                session["total_distance"] = self._normalize_fit_distance(
-                    session.get("total_distance")
-                )
-
             if session.get("total_distance") is None and record_mesgs:
                 for record in reversed(record_mesgs):
                     if record.get("enhanced_distance") is not None:
-                        session["total_distance"] = self._normalize_fit_distance(
-                            record.get("enhanced_distance")
-                        )
+                        session["total_distance"] = record.get("enhanced_distance")
                         break
                     if record.get("distance") is not None:
-                        session["total_distance"] = self._normalize_fit_distance(
-                            record.get("distance")
-                        )
+                        session["total_distance"] = record.get("distance")
                         break
 
             if session.get("start_time") is None and record_mesgs:
@@ -432,7 +423,7 @@ class Track:
             (message["start_time"] + FIT_EPOCH_S + total_elapsed_time),
             tz=timezone.utc,
         )
-        self.length = self._normalize_fit_distance(message.get("total_distance") or 0)
+        raw_distance = message.get("total_distance") or 0
         self.average_heartrate = (
             message["avg_heart_rate"] if "avg_heart_rate" in message else None
         )
@@ -446,8 +437,6 @@ class Track:
             message["total_ascent"] if "total_ascent" in message else None
         )
         # moving_dict
-        self.moving_dict["distance"] = self.length
-
         moving_time_seconds = (
             message.get("total_moving_time")
             or message.get("total_timer_time")
@@ -463,10 +452,27 @@ class Track:
 
         enhanced_avg_speed = message.get("enhanced_avg_speed")
         avg_speed = message.get("avg_speed")
+        average_speed = 0
         if enhanced_avg_speed:
-            self.moving_dict["average_speed"] = enhanced_avg_speed
+            average_speed = enhanced_avg_speed
         elif avg_speed:
-            self.moving_dict["average_speed"] = avg_speed
+            average_speed = avg_speed
+        else:
+            average_speed = 0
+
+        sport = (message.get("sport") or "").lower()
+        sub_sport = (message.get("sub_sport") or "").lower()
+        self.length = self._normalize_fit_distance(
+            raw_distance,
+            moving_time_seconds=moving_time_seconds,
+            average_speed=average_speed,
+            sport=sport,
+            sub_sport=sub_sport,
+        )
+        self.moving_dict["distance"] = self.length
+
+        if average_speed:
+            self.moving_dict["average_speed"] = average_speed
         elif moving_time_seconds:
             self.moving_dict["average_speed"] = self.length / moving_time_seconds
         else:
@@ -498,7 +504,13 @@ class Track:
                 self.device += " " + device_message["garmin_product"]
 
     @staticmethod
-    def _normalize_fit_distance(distance):
+    def _normalize_fit_distance(
+        distance,
+        moving_time_seconds=0,
+        average_speed=0,
+        sport="",
+        sub_sport="",
+    ):
         if distance is None:
             return None
         try:
@@ -506,8 +518,32 @@ class Track:
         except (TypeError, ValueError):
             return distance
 
-        if value > 0 and value < 1000:
-            return value * 1000
+        # Some FIT sources (notably lap swimming) can encode distance in millimeters.
+        # Example: 25m -> 25000. Convert mm -> m for swimming when it cleanly fits.
+        sport_l = str(sport or "").lower()
+        sub_sport_l = str(sub_sport or "").lower()
+        if (sport_l == "swimming" or "swim" in sub_sport_l) and value > 0:
+            if value >= 1000:
+                scaled = value / 1000
+                # treat as mm if it cleanly converts to meters
+                if abs(scaled - round(scaled)) < 1e-6:
+                    return scaled
+
+        # FIT distances are typically meters. A previous heuristic multiplied values <1000,
+        # which breaks legitimate sub-1km activities.
+        # If some sources provide distance in km, detect that by comparing against
+        # average_speed (m/s) * moving_time_seconds.
+        try:
+            mt = float(moving_time_seconds or 0)
+            spd = float(average_speed or 0)
+        except (TypeError, ValueError):
+            return value
+
+        if value > 0 and mt > 0 and spd > 0:
+            expected_distance = spd * mt
+            # If the reported distance is ~1000x smaller than expected, treat it as km.
+            if value < 1000 and expected_distance / value > 50:
+                return value * 1000
 
         return value
 

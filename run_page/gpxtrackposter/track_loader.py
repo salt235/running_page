@@ -77,6 +77,13 @@ class TrackLoader:
 
     def load_tracks(self, data_dir, file_suffix="gpx", activity_title_dict={}):
         """Load tracks data_dir and return as a List of tracks"""
+        force_reimport = str(os.getenv("FORCE_REIMPORT", "")).lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        )
         file_names = [x for x in self._list_data_files(data_dir, file_suffix)]
         print(f"{file_suffix.upper()} files: {len(file_names)}")
 
@@ -93,6 +100,10 @@ class TrackLoader:
 
         tracks = self._filter_tracks(tracks)
         # filter out tracks with length < min_length
+        # NOTE: when FORCE_REIMPORT is enabled we want to re-process even short tracks
+        # to correct previous bad imports in the database.
+        if force_reimport:
+            return tracks
         return [t for t in tracks if t.length >= self.min_length]
 
     def load_tracks_from_db(self, sql_file, is_grid=False):
@@ -155,7 +166,14 @@ class TrackLoader:
 
     @staticmethod
     def _list_data_files(data_dir, file_suffix):
-        synced_files = load_synced_file_list()
+        force_reimport = str(os.getenv("FORCE_REIMPORT", "")).lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        )
+        synced_files = [] if force_reimport else load_synced_file_list()
         data_dir = os.path.abspath(data_dir)
         if not os.path.isdir(data_dir):
             raise ParameterError(f"Not a directory: {data_dir}")
